@@ -39,15 +39,6 @@ docker exec -it blog_frontend npm install
 - **Backend API**: http://localhost:8000/api
 - **MySQL**: localhost:3306
 
-### 🔑 Default Credentials
-
-```
-Email: admin@blog.com
-Password: Admin123!
-```
-
-⚠️ **Note**: The password is stored in plain text (SEC-001 bug)
-
 ---
 
 ## 🛠️ Useful Commands
@@ -118,52 +109,6 @@ docker-compose up -d --build
 
 ---
 
-## 🐛 Troubleshooting
-
-### Port already in use
-
-If ports 3000, 8000, or 3306 are already used:
-
-```bash
-# Check what's using the port
-lsof -i :3000
-lsof -i :8000
-
-# Kill the process or change ports in docker-compose.yml
-```
-
-### Database connection refused
-
-```bash
-# Check MySQL is running
-docker ps | grep mysql
-
-# Restart MySQL
-docker-compose restart mysql
-
-# Wait 30 seconds and try again
-```
-
-### Permission errors (Linux/Mac)
-
-```bash
-# Fix Laravel storage permissions
-docker exec -it blog_backend chown -R www-data:www-data /var/www/html/storage
-docker exec -it blog_backend chmod -R 775 /var/www/html/storage
-```
-
-### Frontend not loading
-
-```bash
-# Rebuild frontend
-docker-compose restart frontend
-docker logs blog_frontend -f
-
-# Check if Vite is running on port 3000
-```
-
----
-
 ## 📁 Project Structure
 
 ```
@@ -188,48 +133,12 @@ docker logs blog_frontend -f
 └── README.md                   # This file
 ```
 
----
-
-## 🧪 Testing the Bugs
-
-Once the application is running, you can test the bugs:
-
-### [BUG-001] Search with accents
-1. Create an article with title "Le café du matin"
-2. Search for "café" → No results ❌
-3. Search for "cafe" → Found ✅
-
-### [BUG-002] Delete last comment
-1. Create an article with 1 comment
-2. Try to delete it → Error 500 ❌
-
-### [BUG-003] Upload large image
-1. Try uploading an image > 2MB → Error 413 ❌
-
-### [BUG-004] Date format
-1. Look at any article date → Shows US format/timezone ❌
-
-### [SEC-001] Passwords in plain text
-```bash
-docker exec -it blog_mysql mysql -u blog_user -pblog_password blog_db
-SELECT email, password FROM users;
-# Passwords are visible in plain text ❌
-```
-
-### [PERF-001] Slow article list
-1. Open browser DevTools → Network tab
-2. Load article list
-3. Check backend logs → 101 SQL queries for 50 articles ❌
-
----
-
 ## 📞 Need Help?
 
 If you're stuck:
 1. Check Docker logs: `docker logs blog_backend -f`
 2. Verify all containers are running: `docker ps`
 3. Check the main CHALLENGE.md for more details
-4. Contact the recruiter if blocked > 2 hours
 
 ---
 

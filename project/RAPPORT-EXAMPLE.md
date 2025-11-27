@@ -89,37 +89,6 @@
 
 [Suggestions d'améliorations non demandées mais qui pourraient être utiles]
 
----
-
-## 🧪 Instructions de test
-
-### Lancement de l'application
-
-```bash
-cd project
-docker-compose up -d
-docker exec -it blog_backend composer install
-docker exec -it blog_backend php artisan migrate:fresh --seed
-```
-
-### Accès
-- Frontend : http://localhost:3000
-- Backend API : http://localhost:8000/api
-
-### Comptes de test
-- Email : admin@blog.com
-- Password : Admin123!
-
----
-
-## 📚 Ressources utilisées
-
-- Documentation Laravel : [...]
-- StackOverflow : [liens pertinents]
-- ChatGPT/Claude : [pour quelles questions]
-
----
-
 ## 🎯 Auto-évaluation
 
 **Points forts** :

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -23,8 +24,9 @@ class AuthController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
+        //  if ($user->password !== $credentials['password']) {
 
-        if ($user->password !== $credentials['password']) {
+        if (!Hash::check($credentials['password'], $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
@@ -52,7 +54,9 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password' => $validated['password'],
+            // 'password' => $validated['password'],
+            'password' => Hash::make($validated['password']),
+            
         ]);
 
         return response()->json([

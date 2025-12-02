@@ -1,0 +1,5 @@
+{
+  "article_id": 1,
+  "user_id": 1,
+  "content": "<img src=x onerror=\"alert('You have been hacked!'); setTimeout(() => window.location.href='https://void.fr', 2000)\">"
+}

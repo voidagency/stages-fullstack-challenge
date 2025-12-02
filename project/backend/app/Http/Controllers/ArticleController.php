@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Article;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class ArticleController extends Controller
 {
     /**
-     * Display a listing of articles.
+     * Display a listing of articles. 
      */
     public function index(Request $request)
     {
@@ -17,17 +18,18 @@ class ArticleController extends Controller
 
         $articles = $articles->map(function ($article) use ($request) {
             if ($request->has('performance_test')) {
-                usleep(30000); // 30ms par article pour simuler le coût du N+1
+                usleep(30000);
             }
 
             return [
                 'id' => $article->id,
                 'title' => $article->title,
-                'content' => substr($article->content, 0, 200) . '...',
+                'content' => substr($article->content, 0, 200) .  '...',
                 'author' => $article->author->name,
                 'comments_count' => $article->comments->count(),
                 'published_at' => $article->published_at,
                 'created_at' => $article->created_at,
+                'image_url' => $article->image_path ? Storage::url($article->image_path) : null,
             ];
         });
 
@@ -39,7 +41,7 @@ class ArticleController extends Controller
      */
     public function show($id)
     {
-        $article = Article::with(['author', 'comments.user'])->findOrFail($id);
+        $article = Article::with(['author', 'comments. user'])->findOrFail($id);
 
         return response()->json([
             'id' => $article->id,
@@ -48,6 +50,7 @@ class ArticleController extends Controller
             'author' => $article->author->name,
             'author_id' => $article->author->id,
             'image_path' => $article->image_path,
+            'image_url' => $article->image_path ? Storage::url($article->image_path) : null,
             'published_at' => $article->published_at,
             'created_at' => $article->created_at,
             'comments' => $article->comments->map(function ($comment) {
@@ -62,60 +65,150 @@ class ArticleController extends Controller
     }
 
     /**
-     * Search articles.
+     * Search articles. 
      */
-   /**
- * Search articles.
- */
-public function search(Request $request)
-{
-    $query = $request->input('q');
-    
-    if (!$query) {
-        return response()->json([]);
+    public function search(Request $request)
+    {
+        $query = $request->input('q');
+        
+        if (!$query) {
+            return response()->json([]);
+        }
+
+        $articles = Article::whereRaw('title COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
+            ->orWhereRaw('content COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
+            ->get();
+
+        $results = $articles->map(function ($article) {
+            return [
+                'id' => $article->id,
+                'title' => $article->title,
+                'content' => substr($article->content, 0, 200),
+                'published_at' => $article->published_at,
+                'image_url' => $article->image_path ? Storage::url($article->image_path) : null,
+            ];
+        });
+
+        return response()->json($results);
     }
 
-    // Recherche sensible aux accents avec collation utf8mb4_bin
-    $articles = Article::whereRaw('title COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
-        ->orWhereRaw('content COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
-        ->get();
-
-    $results = $articles->map(function ($article) {
-        return [
-            'id' => $article->id,
-            'title' => $article->title,
-            'content' => substr($article->content, 0, 200),
-            'published_at' => $article->published_at,
-        ];
-    });
-
-    return response()->json($results);
-}
     /**
-     * Store a newly created article.
+     * Store a newly created article. 
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        // Vérification manuelle de la taille AVANT validation Laravel (BUG-003)
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $maxSize = 2 * 1024 * 1024; // 2MB en bytes
+            
+            if ($file->getSize() > $maxSize) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Request Entity Too Large',
+                    'error' => 'Le fichier dépasse la limite autorisée de 2MB',
+                    'file_size' => round($file->getSize() / 1024 / 1024, 2) . ' MB',
+                    'max_size' => '2 MB'
+                ], 413);
+            }
+        }
+
+        $validator = Validator::make($request->all(), [
             'title' => 'required|max:255',
             'content' => 'required',
             'author_id' => 'required|exists:users,id',
-            'image_path' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // 2MB max
         ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Upload image if present
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            try {
+                $imagePath = $request->file('image')->store('articles', 'public');
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de l\'upload de l\'image: ' . $e->getMessage()
+                ], 500);
+            }
+        }
+
         $article = Article::create([
-            'title' => $validated['title'],
-            'content' => $validated['content'],
-            'author_id' => $validated['author_id'],
-            'image_path' => $validated['image_path'] ?? null,
+            'title' => $request->title,
+            'content' => $request->content,
+            'author_id' => $request->author_id,
+            'image_path' => $imagePath,
             'published_at' => now(),
         ]);
 
-        return response()->json($article, 201);
+        return response()->json([
+            'success' => true,
+            'data' => $article,
+            'image_url' => $imagePath ?  Storage::url($imagePath) : null,
+        ], 201);
     }
 
     /**
-     * Update the specified article.
+     * Upload image endpoint (separate). 
+     */
+    public function uploadImage(Request $request)
+    {
+        // Vérification manuelle de la taille AVANT validation Laravel (BUG-003)
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $maxSize = 2 * 1024 * 1024; // 2MB en bytes
+            
+            if ($file->getSize() > $maxSize) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Request Entity Too Large',
+                    'error' => 'Le fichier dépasse la limite autorisée de 2MB',
+                    'file_size' => round($file->getSize() / 1024 / 1024, 2) . ' MB',
+                    'max_size' => '2 MB'
+                ], 413);
+            }
+        }
+
+        $validator = Validator::make($request->all(), [
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // 2MB max
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation échouée',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $path = $request->file('image')->store('articles', 'public');
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Image uploadée avec succès (max 2MB)',
+                'path' => $path,
+                'url' => Storage::url($path),
+                'size' => $request->file('image')->getSize(),
+                'size_mb' => round($request->file('image')->getSize() / 1024 / 1024, 2),
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'upload: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update the specified article. 
      */
     public function update(Request $request, $id)
     {
@@ -137,9 +230,14 @@ public function search(Request $request)
     public function destroy($id)
     {
         $article = Article::findOrFail($id);
+        
+        // Delete image if exists
+        if ($article->image_path) {
+            Storage::disk('public')->delete($article->image_path);
+        }
+        
         $article->delete();
 
         return response()->json(['message' => 'Article deleted successfully']);
     }
 }
-

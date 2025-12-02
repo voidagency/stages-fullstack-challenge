@@ -16,7 +16,14 @@ function ImageUpload() {
       setError('');
       
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      setMessage(`Fichier sélectionné : ${file.name} (${sizeMB} MB)`);
+      const MAX_SIZE_MB = 2;
+      
+      // Afficher une erreur immédiate si le fichier dépasse 2MB
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        setError(`❌ Fichier trop volumineux : ${file.name} (${sizeMB} MB). Maximum autorisé : ${MAX_SIZE_MB} MB. Devrait échouer avec erreur 413.`);
+      } else {
+        setMessage(`Fichier sélectionné : ${file.name} (${sizeMB} MB)`);
+      }
     }
   };
 
@@ -40,9 +47,12 @@ function ImageUpload() {
       setSelectedFile(null);
     } catch (err) {
       if (err.response?.status === 413) {
-        setError('❌ Erreur 413 : Image trop volumineuse ! La limite est de 2MB.');
+        setError('❌ Erreur 413 : Request Entity Too Large - Image trop volumineuse ! La limite est de 2MB.');
+      } else if (err.response?.status === 422) {
+        const errorMsg = err.response.data?.message || err.response.data?.errors?.image?.[0] || 'Validation échouée';
+        setError(`❌ Erreur 422 : ${errorMsg}`);
       } else {
-        setError(`❌ Erreur lors de l'upload : ${err.message}`);
+        setError(`❌ Erreur lors de l'upload : ${err.response?.data?.message || err.message}`);
       }
       console.error('Upload error:', err);
     } finally {

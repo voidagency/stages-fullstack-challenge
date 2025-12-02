@@ -87,9 +87,6 @@ class ArticleController extends Controller
         if (!$query) {
             return response()->json([]);
         }
-//  $articles = DB::select(
-//             "SELECT * FROM articles WHERE title LIKE '%" . $query . "%'"
-//         );  fix article search
         $articles = Article::query()
             ->whereRaw('CONVERT(title USING utf8mb4) COLLATE utf8mb4_0900_ai_ci LIKE ?', ["%{$query}%"]) 
             ->orWhereRaw('CONVERT(content USING utf8mb4) COLLATE utf8mb4_0900_ai_ci LIKE ?', ["%{$query}%"]) 

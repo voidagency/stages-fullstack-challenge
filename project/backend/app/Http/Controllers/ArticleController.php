@@ -64,7 +64,7 @@ class ArticleController extends Controller
     /**
      * Search articles.
      */
-  /**
+   /**
  * Search articles.
  */
 public function search(Request $request)
@@ -91,7 +91,6 @@ public function search(Request $request)
 
     return response()->json($results);
 }
-
     /**
      * Store a newly created article.
      */

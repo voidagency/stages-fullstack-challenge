@@ -66,17 +66,30 @@ class ArticleController extends Controller
 
     /**
      * Search articles. 
+     * Protected against SQL injection using Eloquent query builder.
      */
     public function search(Request $request)
     {
-        $query = $request->input('q');
+        // Validation stricte de l'input
+        $validated = $request->validate([
+            'q' => 'required|string|min:1|max:255',
+        ]);
         
-        if (!$query) {
+        $query = $validated['q'];
+        
+        // Sanitization supplémentaire : supprimer les caractères dangereux
+        $query = strip_tags($query);
+        $query = trim($query);
+        
+        if (empty($query)) {
             return response()->json([]);
         }
 
-        $articles = Article::whereRaw('title COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
-            ->orWhereRaw('content COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
+        // Utilisation d'Eloquent pur (pas de raw SQL) avec paramètres bindés automatiquement
+        // Protection native contre les injections SQL
+        $articles = Article::where('title', 'LIKE', '%' . $query . '%')
+            ->orWhere('content', 'LIKE', '%' . $query . '%')
+            ->limit(100) // Limite de résultats pour éviter les abus
             ->get();
 
         $results = $articles->map(function ($article) {

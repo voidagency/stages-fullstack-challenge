@@ -62,11 +62,21 @@ class ImageUploadController extends Controller
      */
     public function delete(Request $request)
     {
-        $request->validate([
-            'path' => 'required|string',
+        // Validation stricte avec sanitization
+        $validated = $request->validate([
+            'path' => 'required|string|max:255',
         ]);
 
-        $path = $request->input('path');
+        $path = $validated['path'];
+        
+        // Sanitization : supprimer les caract\u00e8res dangereux et path traversal
+        $path = str_replace(['..', '\\', '//'], '', $path);
+        $path = trim($path);
+
+        // V\u00e9rifier que le chemin ne sort pas du dossier autoris\u00e9
+        if (!str_starts_with($path, 'images/') && !str_starts_with($path, 'articles/')) {
+            return response()->json(['error' => 'Invalid path'], 400);
+        }
 
         if (Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);

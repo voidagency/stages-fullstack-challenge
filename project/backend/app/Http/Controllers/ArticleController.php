@@ -123,42 +123,30 @@ class ArticleController extends Controller
      * Search articles. 
      * Protected against SQL injection using Eloquent query builder.
      */
-    public function search(Request $request)
-    {
-        // Validation stricte de l'input
-        $validated = $request->validate([
-            'q' => 'required|string|min:1|max:255',
-        ]);
-        
-        $query = $validated['q'];
-        
-        // Sanitization supplémentaire : supprimer les caractères dangereux
-        $query = strip_tags($query);
-        $query = trim($query);
-        
-        if (empty($query)) {
-            return response()->json([]);
-        }
-
-        // Utilisation d'Eloquent pur (pas de raw SQL) avec paramètres bindés automatiquement
-        // Protection native contre les injections SQL
-        $articles = Article::where('title', 'LIKE', '%' . $query . '%')
-            ->orWhere('content', 'LIKE', '%' . $query . '%')
-            ->limit(100) // Limite de résultats pour éviter les abus
-            ->get();
-
-        $results = $articles->map(function ($article) {
-            return [
-                'id' => $article->id,
-                'title' => $article->title,
-                'content' => substr($article->content, 0, 200),
-                'published_at' => $article->published_at,
-                'image_url' => $article->image_path ? Storage::url($article->image_path) : null,
-            ];
-        });
-
-        return response()->json($results);
+  public function search(Request $request)
+{
+    $query = $request->input('q');
+    
+    if (!$query) {
+        return response()->json([]);
     }
+
+    // Recherche sensible aux accents avec collation utf8mb4_bin
+    $articles = Article::whereRaw('title COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
+        ->orWhereRaw('content COLLATE utf8mb4_bin LIKE ?', ['%' . $query . '%'])
+        ->get();
+
+    $results = $articles->map(function ($article) {
+        return [
+            'id' => $article->id,
+            'title' => $article->title,
+            'content' => substr($article->content, 0, 200),
+            'published_at' => $article->published_at,
+        ];
+    });
+
+    return response()->json($results);
+}
 
     /**
      * Store a newly created article. 
